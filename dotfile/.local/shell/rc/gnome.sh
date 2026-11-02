@@ -1,0 +1,2 @@
+
+alias files="nautilus -w ."
