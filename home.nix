@@ -7,6 +7,12 @@
     ./gui/gui.nix
   ];
   
+  nix.package = pkgs.nix; 
+  nix.settings.extra-substituters = [
+    "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
+    "https://cache.nixos.org/"
+  ];
+
   # Home Manager needs a bit of information about you and the paths it should
   # manage.
   home.username = "v";

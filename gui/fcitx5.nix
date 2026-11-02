@@ -14,17 +14,17 @@ in
       fcitx5-rime-with-ice 
       rime-data
       fcitx5-gtk
-      fcitx5-chinese-addons
+      qt6Packages.fcitx5-chinese-addons
       qt6Packages.fcitx5-configtool
     ];
   };
 
   # 可选：手动设置环境变量（NixOS 通常会自动处理，但某些情况下需要）
-  environment.sessionVariables = {
-    GTK_IM_MODULE=fcitx5;
-    QT_IM_MODULE=fcitx5;
-    XMODIFIERS="@im=fcitx5";
-    INPUT_METHOD=fcitx5;
-    SDL_IM_MODULE=fcitx5;
-  };
+#   i18n.inputMethod.fcitx5.sessionVariables = {
+#     GTK_IM_MODULE = "fcitx";
+#     QT_IM_MODULE = "fcitx";
+#     XMODIFIERS = "@im=fcitx";
+#     INPUT_METHOD = "fcitx";
+#     SDL_IM_MODULE = "fcitx";
+#   };
 }
