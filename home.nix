@@ -1,16 +1,23 @@
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 
 {
+  nix.package = pkgs.nix; 
+  nix.settings = {
+    # 先注释掉其他包的安装, 单独为国内源编译一次配置, 
+    # 不然大包下载不下来, 编译过不去, 国内源就生效不了...
+    # 或者直接指定国内源编译: home-manager switch --flake ~/.local/project/home-manager --option substituters "https://mirrors.ustc.edu.cn/nix-channels/store?priority=10 https://cache.nixos.org/"
+    # 使用 extra-substituters 追加镜像，对非受信任用户也有效
+    extra-substituters = [
+      
+      "https://mirrors.ustc.edu.cn/nix-channels/store?priority=10"
+    ];
+    # 保留官方源作为后备（extra-substituters 本身不会移除它）
+  };
+
   imports = [
     ./dotfile.nix
     ./cmd/cmd.nix
     ./gui/gui.nix
-  ];
-  
-  nix.package = pkgs.nix; 
-  nix.settings.extra-substituters = [
-    "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"
-    "https://cache.nixos.org/"
   ];
 
   # Home Manager needs a bit of information about you and the paths it should
