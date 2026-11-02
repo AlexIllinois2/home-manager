@@ -9,6 +9,7 @@
   nix.settings = {
     # 使用 extra-substituters 追加镜像，对非受信任用户也有效
     extra-substituters = [
+      "https://mirrors.cernet.edu.cn/nix-channels/store?priority=10"
       "https://mirrors.ustc.edu.cn/nix-channels/store?priority=10"
       "https://mirror.sjtu.edu.cn/nix-channels/store?priority=10"
       "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store?priority=20"
