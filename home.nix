@@ -1,17 +1,18 @@
 { config, pkgs, lib, ... }:
 
+# 还没有编译成功过的话配置的国内源就生效不了, 因此第一次编译最好在命令中显式指定国内源: 
+# home-manager switch --flake ~/.local/project/home-manager --option substituters "https://mirrors.ustc.edu.cn/nix-channels/store?priority=10 https://cache.nixos.org/"
+# 或者也可以先注释掉其他包的安装, 单独为国内源编译一次配置, 让国内源先生效
+
 {
   nix.package = pkgs.nix; 
   nix.settings = {
-    # 先注释掉其他包的安装, 单独为国内源编译一次配置, 
-    # 不然大包下载不下来, 编译过不去, 国内源就生效不了...
-    # 或者直接指定国内源编译: home-manager switch --flake ~/.local/project/home-manager --option substituters "https://mirrors.ustc.edu.cn/nix-channels/store?priority=10 https://cache.nixos.org/"
     # 使用 extra-substituters 追加镜像，对非受信任用户也有效
     extra-substituters = [
-      
       "https://mirrors.ustc.edu.cn/nix-channels/store?priority=10"
+      "https://mirror.sjtu.edu.cn/nix-channels/store?priority=10"
+      "https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store?priority=20"
     ];
-    # 保留官方源作为后备（extra-substituters 本身不会移除它）
   };
 
   imports = [
