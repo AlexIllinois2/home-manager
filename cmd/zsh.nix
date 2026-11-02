@@ -3,20 +3,38 @@
 {
   programs.zsh = {
     enable = true; # 启用 Zsh
+
+    # 历史记录设置
+    history = {
+      size = 10000;
+      save = 10000;
+      ignoreDups = true;
+      path = "${config.home.homeDirectory}/.zsh_history";
+    };
+
     enableCompletion = true; # 启用命令补全
     autosuggestion.enable = true; # 启用历史命令自动建议
     syntaxHighlighting.enable = true; # 启用语法高亮
+
+    plugins = [
+      {
+        name = "powerlevel10k";
+        src = pkgs.zsh-powerlevel10k;
+        file = "share/zsh-powerlevel10k/powerlevel10k.zsh-theme";
+      }
+    ];
+
+    initContent = ''
+      source $HOME/.local/shell/zsh.zsh
+      find $HOME/.local/shell/env -mindepth 1 2>/dev/null | while read -r line; do source "$line"; done
+      find $HOME/.local/shell/rc -mindepth 1 2>/dev/null | while read -r line; do source "$line"; done
+      unset line
+    '';
 
     # 你的命令别名
     shellAliases = {
       ll = "ls -l";
       update = "sudo dnf upgrade"; # 在 Fedora 上更新系统
-    };
-
-    # 历史记录设置
-    history = {
-      size = 10000;
-      ignoreDups = true;
     };
   };
   
