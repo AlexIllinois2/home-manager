@@ -1,8 +1,8 @@
 { config, lib, ... }:
 
 let
-  dotfilesDir = "${config.home.homeDirectory}/.config/home-manager/dotfile";
-  dotfilesPath = ./dotfile;
+  dotfilesDir = "${config.home.homeDirectory}/.config/home-manager/home";
+  dotfilesPath = ./home;
 
   listFiles = exclude: dir: prefix:
     let
