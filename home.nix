@@ -1,14 +1,11 @@
 { config, pkgs, ... }:
 
 {
-
-
   imports = [
     ./dotfile.nix
     ./cmd/zsh.nix
     # ... 根据需要添加更多模块
   ];
-  
   
   # Home Manager needs a bit of information about you and the paths it should
   # manage.
@@ -82,6 +79,4 @@
 
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
-  
-
 }

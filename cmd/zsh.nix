@@ -1,6 +1,10 @@
 { config, pkgs, lib, ... }:
 
 {
+  programs.zoxide = {
+    enable = true;
+    enableZshIntegration = true;
+  };
   programs.zsh = {
     enable = true; # 启用 Zsh
 
@@ -21,6 +25,15 @@
         name = "powerlevel10k";
         src = pkgs.zsh-powerlevel10k;
         file = "share/zsh-powerlevel10k/powerlevel10k.zsh-theme";
+      }
+      {
+        name = "fzf-tab";
+        src = pkgs.fetchFromGitHub {
+          owner = "Aloxaf";
+          repo = "fzf-tab";
+          rev = "190500bf1de6a89416e2a74470d3b5cceab102ba"; # 或更新版本
+          sha256 = "1dipsy0s67fr47ig5559bcp1h5yn8rdjshhs8zsq7j8plvvh99qb";
+        };
       }
     ];
 

@@ -4,8 +4,7 @@ setopt interactive_comments
 
 ## plugins
 # 自动跳转(关闭警告)
-zmodload zsh/zle
-export _ZO_DOCTOR=0
+#export _ZO_DOCTOR=0
 
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
