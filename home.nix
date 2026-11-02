@@ -3,8 +3,8 @@
 {
   imports = [
     ./dotfile.nix
-    ./cmd/zsh.nix
-    # ... 根据需要添加更多模块
+    ./cmd/cmd.nix
+    ./gui/gui.nix
   ];
   
   # Home Manager needs a bit of information about you and the paths it should
