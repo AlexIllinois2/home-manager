@@ -1,11 +1,10 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, ... }: 
 
-let
-  fcitx5-rime-with-ice = pkgs.fcitx5-rime.override {
+let fcitx5-rime-with-ice = pkgs.fcitx5-rime.override {
     rimeDataPkgs = [ pkgs.rime-ice ]; # 或使用 NUR 的 rime-ice
-  };
-in
-{
+};
+
+in {
   i18n.inputMethod = {
     type = "fcitx5";
     enable = true;

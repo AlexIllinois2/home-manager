@@ -2,7 +2,6 @@
   programs.vim = {
     enable = true;
     defaultEditor = true;        # 自动把 EDITOR 设成 vim
-    package = pkgs.vim-full;     # 可选；默认 pkgs.vim
 
     settings = {
       number = true;
