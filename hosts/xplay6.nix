@@ -9,7 +9,9 @@ let
   homeDir = "/data/data/com.termux.nix/files/home";
 in
 {
-  imports = [ ../pkg/xplay6-toolchain.nix ];
+  imports = [
+    ../pkg/xplay6-toolchain.nix
+  ];
 
   # Nix-on-Droid 的固定布局：proot 内 HOME 为 /data/data/com.termux.nix/files/home
   home.username = lib.mkForce "nix-on-droid";
