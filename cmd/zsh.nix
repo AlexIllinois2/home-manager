@@ -4,9 +4,6 @@ let
   # 这里按当前 HM 提供的选项自动选择，桌面（unstable）仍用 initContent。
   initSnippet = ''
     source $HOME/.local/shell/zsh.zsh
-    find $HOME/.local/shell/env -mindepth 1 2>/dev/null | while read -r line; do source "$line"; done
-    find $HOME/.local/shell/rc -mindepth 1 2>/dev/null | while read -r line; do source "$line"; done
-    unset line
   '';
 in {
   programs.zoxide = {

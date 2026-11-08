@@ -10,7 +10,7 @@ fi
 cd() {
     __zoxide_z "$@" && ls -a
 }
-cd .
+#cd .
 
 # cd
 alias ~="cd $HOME"

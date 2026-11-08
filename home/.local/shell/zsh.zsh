@@ -1,3 +1,4 @@
+[[ -o interactive ]] || return
 
 # 允许输入行注释
 setopt interactive_comments
@@ -50,3 +51,8 @@ bindkey '^L' clear-screen-and-scrollback
 
 # 添加钩子供自定义脚本使用
 autoload -U add-zsh-hook
+
+
+find $HOME/.local/shell/env -mindepth 1 2>/dev/null | while read -r line; do source "$line"; done
+find $HOME/.local/shell/rc -mindepth 1 2>/dev/null | while read -r line; do source "$line"; done
+unset line
