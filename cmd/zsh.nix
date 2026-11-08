@@ -1,4 +1,14 @@
-{ config, pkgs, lib, ... }: {
+{ config, pkgs, lib, options, ... }:
+let
+  # HM 24.11 起把 initExtra 改名为 initContent；24.05 只有旧名。
+  # 这里按当前 HM 提供的选项自动选择，桌面（unstable）仍用 initContent。
+  initSnippet = ''
+    source $HOME/.local/shell/zsh.zsh
+    find $HOME/.local/shell/env -mindepth 1 2>/dev/null | while read -r line; do source "$line"; done
+    find $HOME/.local/shell/rc -mindepth 1 2>/dev/null | while read -r line; do source "$line"; done
+    unset line
+  '';
+in {
   programs.zoxide = {
     enable = true;
     enableZshIntegration = true;
@@ -36,19 +46,14 @@
       }
     ];
 
-    initContent = ''
-      source $HOME/.local/shell/zsh.zsh
-      find $HOME/.local/shell/env -mindepth 1 2>/dev/null | while read -r line; do source "$line"; done
-      find $HOME/.local/shell/rc -mindepth 1 2>/dev/null | while read -r line; do source "$line"; done
-      unset line
-    '';
-
     # 你的命令别名
     shellAliases = {
       ll = "ls -l";
       update = "sudo dnf upgrade"; # 在 Fedora 上更新系统
     };
-  };
+  } // (if options.programs.zsh ? initContent
+    then { initContent = initSnippet; }
+    else { initExtra = initSnippet; });
   
   # 自动化：在激活时尝试将 zsh 设为默认 shell
   home.activation.makeZshDefault = lib.hm.dag.entryAfter [ "writeBoundary" ] ''

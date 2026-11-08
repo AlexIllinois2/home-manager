@@ -11,9 +11,9 @@
   };
 
   imports = [
+    ./dns.nix
     ./dotfile.nix
     ./cmd/cmd.nix
-    ./gui/gui.nix
   ];
 
   # Home Manager needs a bit of information about you and the paths it should

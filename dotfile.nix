@@ -20,7 +20,7 @@ let
           else [ ]
       ) (builtins.attrNames entries);
 
-  relPaths = listFiles [ ".git" "README.md" ] dotfilesPath "";
+  relPaths = listFiles ([ ".git" "README.md" ] ++ config.dotfiles.exclude) dotfilesPath "";
 
   mkEntry = rel: {
     name  = rel;
@@ -28,5 +28,11 @@ let
   };
 in
 {
-  home.file = builtins.listToAttrs (map mkEntry relPaths);
+  options.dotfiles.exclude = lib.mkOption {
+    type = lib.types.listOf lib.types.str;
+    default = [ ];
+    description = "额外排除的 dotfile 名称（headless 设备用来去掉 GUI 相关片段）";
+  };
+
+  config.home.file = builtins.listToAttrs (map mkEntry relPaths);
 }
