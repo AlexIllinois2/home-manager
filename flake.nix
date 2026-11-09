@@ -49,10 +49,22 @@
         ./hosts/xplay6.nix
       ];
 
+      # Redmi Note 8 Pro：命令行先行版本，不含 sshd/自启（访问走 Termux 8022）。
+      homeConfigurations."begonia" = mkHome "aarch64-linux" [
+        ./home.nix
+        ./hosts/begonia.nix
+      ];
+
       # 官方 home-manager 集成：系统层与 HM 共用 24.05 的 pkgs
       nixOnDroidConfigurations.xplay6 = nix-on-droid.lib.nixOnDroidConfiguration {
         pkgs = import nixpkgs-24_05 { system = "aarch64-linux"; };
         modules = [ ./hosts/xplay6-nix-on-droid.nix ];
+        home-manager-path = home-manager-24_05.outPath;
+      };
+
+      nixOnDroidConfigurations.begonia = nix-on-droid.lib.nixOnDroidConfiguration {
+        pkgs = import nixpkgs-24_05 { system = "aarch64-linux"; };
+        modules = [ ./hosts/begonia-nix-on-droid.nix ];
         home-manager-path = home-manager-24_05.outPath;
       };
     };

@@ -1,6 +1,7 @@
 {
   pkgs,
   lib,
+  options,
   ...
 }:
 let
@@ -33,8 +34,8 @@ in
 
   # 设备侧使用说明（纯 app 身份，无 root 依赖）：
   #   - sshd 以 uid 10140 在 proot 内运行，不做 setuid/setcon，不依赖 /sbin/su。
-  #   - 自动启动：打开 Nix-on-Droid 应用就会开一个 login shell（bash），
-  #     login shell 读 ~/.bash_profile，后者调用 ~/rc，~/rc 再把 sshd 拉起来。
+  #   - 自动启动：打开 Nix-on-Droid 应用就会开一个 login shell（现在是 zsh），
+  #     login shell 读 ~/.zprofile，后者调用 ~/rc，~/rc 再把 sshd 拉起来。
   #     所以“应用开终端”即“sshd 已就绪”，不需要 adb、不需要手动执行脚本。
   #   - 没有 Android 开机自启（设备上无 systemd，也不做 su 钩子）。
   #     重启或应用被系统杀掉后，只需重新打开一次应用（开终端）即自动恢复。
@@ -74,7 +75,8 @@ in
     Subsystem sftp internal-sftp
   '';
 
-  # ssh 会话的环境：非交互命令靠 BASH_ENV，交互式靠 .bash_profile/.bashrc。
+  # ssh 会话的环境：登录 shell 改成 zsh 后，PATH 由 /etc/zshenv 与 HM 的
+  # ~/.zshenv 提供；BASH_ENV 仅用于 bash 回退（例如手动 `bash -c`）时补 PATH。
   home.file.".bash_env".text = ''
     export PATH="$HOME/.nix-profile/bin:$HOME/.nix-profile/sbin:/bin:/usr/bin"
     if [ -f "$HOME/.nix-profile/etc/profile.d/hm-session-vars.sh" ]; then
@@ -82,22 +84,45 @@ in
     fi
   '';
 
-  # ~/rc：登录 shell 的自动入口。挂载点是 ~/.bash_profile（见下方），由
+  # ~/rc：登录 shell 的自动入口。挂载点是 ~/.zprofile（见下方），由
   # login-inner 启动登录 shell 时必然读取；内容见 scripts/android/rc.sh。
   home.file."rc" = {
     source = ../scripts/android/rc.sh;
     executable = true;
   };
 
-  # 打开 Nix-on-Droid 应用时，login-inner 会以 0 参数启动登录 shell（bash），
-  # 于是 .bash_profile 就是“应用启动”的必然入口。它只负责调 ~/rc，
+  # 打开 Nix-on-Droid 应用时，login-inner 会以 0 参数启动登录 shell（zsh），
+  # 于是 .zprofile 就是“应用启动”的必然入口。它只负责调 ~/rc，
   # 是否真的要起 sshd 由 ~/rc 自己判断（幂等、加锁、非交互跳过）。
+  # 注意：.zprofile 由 home-manager 的 zsh 模块生成（profileExtra），
+  # 不能再用 home.file 声明同路径，否则两个定义会指向同一个文件。
+  #
+  # 交互式非登录 zsh（例如终端里再敲 zsh）走 .zshrc；登录 shell 已由
+  # .zprofile 处理，这里用 [[ -o login ]] 排除，避免一次启动调用两次 rc。
+  # 24.05 的 home-manager 只有 initExtra，24.11+ 改名 initContent，
+  # 与 cmd/zsh.nix 一样按 options 自动选择，不重复定义。
+  programs.zsh = {
+    profileExtra = ''
+      [ -x "$HOME/rc" ] && "$HOME/rc"
+    '';
+  } // (if options.programs.zsh ? initContent then {
+    initContent = ''
+      if [[ ! -o login ]] && [ -x "$HOME/rc" ]; then "$HOME/rc"; fi
+    '';
+  } else {
+    initExtra = ''
+      if [[ ! -o login ]] && [ -x "$HOME/rc" ]; then "$HOME/rc"; fi
+    '';
+  });
+
+  # bash 回退：正常登录不会走这里（登录 shell 已是 zsh），保留以便手动
+  # `bash -l` 时仍能拉起 sshd。
   home.file.".bash_profile".text = ''
     . "$HOME/.bash_env"
     [ -x "$HOME/rc" ] && "$HOME/rc"
   '';
 
-  # 交互式非登录 shell（例如在终端里再敲 bash）走 .bashrc，同样接上 ~/rc。
+  # 交互式非登录 bash（例如在终端里再敲 bash）走 .bashrc，同样接上 ~/rc。
   # ~/rc 内部做了幂等判断，重复调用不会起第二个 sshd。
   home.file.".bashrc".text = ''
     . "$HOME/.bash_env"

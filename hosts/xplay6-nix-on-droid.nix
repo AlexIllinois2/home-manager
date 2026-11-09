@@ -1,9 +1,16 @@
-{ config, lib, ... }:
+{ config, lib, pkgs, ... }:
 
 {
   # 共享 DNS 清单（dns.nix）。这里只做 nix-on-droid 系统层的落点，
   # home-manager 在桌面上不写 /etc/resolv.conf。
   imports = [ ../dns.nix ];
+
+  # 登录 shell。nix-on-droid 的 user.shell（默认 bashInteractive）会被写进
+  # /etc/passwd 的 shell 字段，并由 login-inner 以 `exec -a "-zsh"` 拉起。
+  # 改成 zsh 后 ~/.bash_profile 不再被登录 shell 读取，因此 ~/rc 钩子已
+  # 同步挪到 ~/.zprofile（见 hosts/xplay6.nix）；.bash_profile 仍保留作
+  # bash 回退，zsh 路径下不会被执行。
+  user.shell = "${pkgs.zsh}/bin/zsh";
 
   # Nix-on-Droid 系统层只保留运行环境，CLI 软件全部交给 home-manager。
   # 默认模板里的 vim 会与 home-manager 的 vim 在 bin/ex 上冲突。
