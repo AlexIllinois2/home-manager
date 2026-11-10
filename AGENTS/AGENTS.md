@@ -12,3 +12,8 @@ home-manager switch --flake ~/.local/project/home-manager \
 ```bash
 chcon -R -h u:object_r:app_data_file:s0:c164,c257,c512,c768 /data/data/com.termux.nix/files
 ```
+xplay6 同理（2026-11-10 修过一次），但 categories 是 `c512,c768`。
+
+## xplay6：绝不能写 scaling_governor
+
+xplay6（3.18 内核）的 cpufreq interactive governor 在切换路径上有 Kernel BUG，写 `scaling_governor` 会直接 panic 重启（崩溃点 `cpufreq_governor_interactive+0x50`）。保活套件的 `cpu_boost.sh`（Termux 家目录）曾因此导致"开应用就死机"——已摘除该行（备份 `cpu_boost.sh.bak-20261110`），只保留 scaling_max/min_freq 锁频。任何 root 脚本都不得再写 governor。

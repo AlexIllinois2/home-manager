@@ -9,13 +9,17 @@
 #
 # 说明：xplay6 的 4 个核默认 governor 就是 performance，且 min=max=cpuinfo_max_freq；
 # 本脚本的作用是“被厂商/热控改回去之后重新压回最高频”，不是必需的常驻服务。
+#
+# 警告：**绝不能写 scaling_governor**。这台 3.18 内核的 cpufreq interactive
+# governor 在切换（GOV_START/STOP）路径上有 Kernel BUG，写 governor 会直接
+# panic 重启（实测 2026-11-10，PC=cpufreq_governor_interactive+0x50）。
+# 锁频只写 scaling_max/min_freq，不触发 governor 切换，是安全的。
 set -e
 
 [ "$(id -u)" = "0" ] || { echo "cpu-boost-manual: 需要临时 root" >&2; exit 1; }
 
 for c in /sys/devices/system/cpu/cpu*/cpufreq; do
   [ -d "$c" ] || continue
-  [ -w "$c/scaling_governor" ] && echo performance > "$c/scaling_governor"
   if [ -r "$c/cpuinfo_max_freq" ] && [ -w "$c/scaling_max_freq" ]; then
     max=$(cat "$c/cpuinfo_max_freq")
     echo "$max" > "$c/scaling_max_freq"
