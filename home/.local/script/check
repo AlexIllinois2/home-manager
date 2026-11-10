@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""
+check <file>
+    检查 <file> 同目录下是否存在 <file>.sha256：
+      - 存在   -> 调用 sha256sum -c <file>.sha256
+      - 不存在 -> 提示并询问是否生成校验文件
+
+check -m <file> <new_file>
+    重命名 <file> 为 <new_file>，同时重命名 <file>.sha256 为 <new_file>.sha256，
+    并更新校验文件内的文件名。
+"""
+
+import hashlib
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+CHUNK_SIZE = 1 << 20  # 1 MiB
+
+
+def sha256_of(path: Path) -> str:
+    """计算文件的 SHA-256 十六进制摘要。"""
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(CHUNK_SIZE), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def write_checksum_file(target: Path) -> Path:
+    """生成 <file>.sha256，格式与 sha256sum 输出一致。"""
+    digest = sha256_of(target)
+    ck_file = target.with_name(target.name + ".sha256")
+    ck_file.write_text(f"{digest}  {target.name}\n", encoding="utf-8")
+    return ck_file
+
+
+def check_mode(file_arg: str) -> int:
+    """原有的检查/生成校验文件逻辑。"""
+    target = Path(file_arg)
+    if not target.is_file():
+        print(f"错误: 找不到文件: {target}", file=sys.stderr)
+        return 2
+
+    ck_file = target.with_name(target.name + ".sha256")
+
+    if ck_file.is_file():
+        if shutil.which("sha256sum") is None:
+            print("错误: 系统中找不到 sha256sum 命令", file=sys.stderr)
+            return 2
+
+        print(f"找到校验文件: {ck_file}")
+        result = subprocess.run(
+            ["sha256sum", "-c", ck_file.name],
+            cwd=str(ck_file.parent),
+        )
+        return result.returncode
+
+    print(f"没有找到校验文件: {ck_file}")
+    try:
+        answer = input("是否生成校验文件? [y/N] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return 1
+
+    if answer in ("y", "yes"):
+        try:
+            path = write_checksum_file(target)
+        except OSError as e:
+            print(f"错误: 生成校验文件失败: {e}", file=sys.stderr)
+            return 2
+        print(f"已生成: {path}")
+        print(f"  {path.read_text(encoding='utf-8').strip()}")
+        return 0
+
+    print("已取消，未生成校验文件。")
+    return 1
+
+
+def rename_mode(old_name: str, new_name: str) -> int:
+    """重命名文件及对应的 .sha256 校验文件，并更新校验文件内的文件名。"""
+    old_file = Path(old_name)
+    new_file = Path(new_name)
+
+    if not old_file.is_file():
+        print(f"错误: 找不到文件: {old_file}", file=sys.stderr)
+        return 2
+
+    old_ck = old_file.with_name(old_file.name + ".sha256")
+    if not old_ck.is_file():
+        print(f"错误: 找不到校验文件: {old_ck}", file=sys.stderr)
+        return 2
+
+    if new_file.exists():
+        print(f"错误: 目标文件已存在: {new_file}", file=sys.stderr)
+        return 2
+
+    if old_file.resolve() == new_file.resolve():
+        print("错误: 新旧文件路径相同", file=sys.stderr)
+        return 2
+
+    # 读取旧校验文件内容
+    try:
+        content = old_ck.read_text(encoding="utf-8")
+    except OSError as e:
+        print(f"错误: 读取校验文件失败: {e}", file=sys.stderr)
+        return 2
+
+    old_filename = old_file.name
+    new_filename = new_file.name
+
+    new_lines = []
+    for line in content.splitlines():
+        line = line.rstrip("\n")
+        if not line.strip():
+            continue
+        parts = line.split(maxsplit=1)
+        if len(parts) != 2:
+            new_lines.append(line)
+            continue
+        hash_val = parts[0]
+        fname = parts[1].strip()
+        # 处理二进制模式标记 '*'
+        if fname == old_filename or fname == f"*{old_filename}":
+            prefix = "*" if fname.startswith("*") else ""
+            new_lines.append(f"{hash_val}  {prefix}{new_filename}")
+        else:
+            new_lines.append(line)
+
+    new_content = "\n".join(new_lines) + "\n"
+
+    # 重命名原始文件
+    try:
+        new_file.parent.mkdir(parents=True, exist_ok=True)
+        old_file.rename(new_file)
+    except OSError as e:
+        print(f"错误: 重命名文件失败: {e}", file=sys.stderr)
+        return 2
+
+    # 处理校验文件
+    new_ck = new_file.with_name(new_file.name + ".sha256")
+    try:
+        if old_ck == new_ck:
+            # 同一路径，直接覆盖
+            new_ck.write_text(new_content, encoding="utf-8")
+        else:
+            new_ck.write_text(new_content, encoding="utf-8")
+            old_ck.unlink()
+    except OSError as e:
+        print(f"错误: 更新校验文件失败: {e}", file=sys.stderr)
+        # 尝试回滚文件重命名
+        try:
+            new_file.rename(old_file)
+        except Exception:
+            pass
+        return 2
+
+    print(f"已重命名: {old_file} -> {new_file}")
+    print(f"已更新校验文件: {old_ck} -> {new_ck}")
+    return 0
+
+
+def main(argv: list[str]) -> int:
+    prog = Path(argv[0]).name
+    args = argv[1:]
+
+    if not args:
+        print(f"用法: {prog} <file>  或  {prog} -m <file> <new_file>", file=sys.stderr)
+        return 2
+
+    if args[0] == "-m":
+        if len(args) != 3:
+            print(f"用法: {prog} -m <file> <new_file>", file=sys.stderr)
+            return 2
+        return rename_mode(args[1], args[2])
+    else:
+        if len(args) != 1:
+            print(f"用法: {prog} <file>", file=sys.stderr)
+            return 2
+        return check_mode(args[0])
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

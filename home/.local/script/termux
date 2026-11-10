@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""
+termux - 扫描局域网内的 Termux SSH 主机，打印并复制 ssh 命令到剪贴板
+
+用法:
+  termux                  # 生成默认用户名的 ssh 命令
+  termux 456              # 生成 u0_a456@<IP> 的 ssh 命令
+  termux u10_a456         # 直接指定完整用户名
+  termux 456 ls -la       # 生成带远程命令的 ssh 命令
+
+选项:
+  -c, --cidr    扫描网段           (默认 192.168.1.0/24)
+  -p, --port    SSH 端口           (默认 8022)
+  -u, --user    默认用户名         (默认 u0_a123)
+  -t, --timeout TCP 探测超时(秒)   (默认 1.0)
+  -n, --no-copy 只打印，不复制到剪贴板
+"""
+
+from __future__ import annotations
+
+import ipaddress
+import shlex
+import shutil
+import socket
+import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+DEFAULT_CIDR = "192.168.1.0/24"
+DEFAULT_PORT = 8022
+DEFAULT_USER = "u0_a123"
+DEFAULT_TIMEOUT = 1.0
+WORKERS = 128
+
+
+def is_open(ip, port, timeout):
+    try:
+        with socket.create_connection((ip, port), timeout=timeout):
+            return ip
+    except OSError:
+        return None
+
+
+def scan(cidr, port, timeout):
+    net = ipaddress.ip_network(cidr, strict=False)
+    hosts = [str(h) for h in net.hosts()]
+    found = []
+    with ThreadPoolExecutor(max_workers=WORKERS) as ex:
+        futs = {ex.submit(is_open, ip, port, timeout): ip for ip in hosts}
+        for f in as_completed(futs):
+            r = f.result()
+            if r:
+                found.append(r)
+    found.sort(key=lambda x: tuple(int(p) for p in x.split(".")))
+    return found
+
+
+def resolve_user(arg, default_user):
+    if arg is None:
+        return default_user
+    if arg.isdigit():
+        return f"u0_a{arg}"
+    return arg
+
+
+def build_ssh_command(user, ip, port, remote_cmd):
+    parts = [
+        "ssh", "-p", str(port),
+        "-o", "StrictHostKeyChecking=accept-new",
+        f"{user}@{ip}",
+    ]
+    parts += [shlex.quote(c) for c in remote_cmd]
+    return " ".join(parts)
+
+
+def copy_to_clipboard(text):
+    """把 text 复制到系统剪贴板。返回使用的工具名，失败返回 None。"""
+    candidates = [
+        ("wl-copy", ["wl-copy"]),
+        ("xclip", ["xclip", "-selection", "clipboard"]),
+        ("xsel", ["xsel", "--clipboard", "--input"]),
+        ("pbcopy", ["pbcopy"]),
+    ]
+    for name, cmd in candidates:
+        if not shutil.which(name):
+            continue
+        try:
+            subprocess.run(cmd, input=text.encode(), check=True)
+            return name
+        except subprocess.CalledProcessError:
+            continue
+    return None
+
+
+def print_help():
+    print(__doc__.strip())
+
+
+def parse_args(argv):
+    cidr = DEFAULT_CIDR
+    port = DEFAULT_PORT
+    user = DEFAULT_USER
+    timeout = DEFAULT_TIMEOUT
+    target = None
+    command = []
+    no_copy = False
+
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a in ("-h", "--help"):
+            print_help()
+            sys.exit(0)
+        elif a in ("-n", "--no-copy"):
+            no_copy = True; i += 1
+        elif a in ("-c", "--cidr"):
+            cidr = argv[i + 1]; i += 2
+        elif a in ("-p", "--port"):
+            port = int(argv[i + 1]); i += 2
+        elif a in ("-u", "--user"):
+            user = argv[i + 1]; i += 2
+        elif a in ("-t", "--timeout"):
+            timeout = float(argv[i + 1]); i += 2
+        else:
+            target = a
+            command = argv[i + 1:]
+            break
+    return cidr, port, user, timeout, target, command, no_copy
+
+
+def main():
+    cidr, port, default_user, timeout, target, command, no_copy = parse_args(sys.argv[1:])
+    user = resolve_user(target, default_user)
+
+    print(f"[termux] 扫描 {cidr} 端口 {port} ...", file=sys.stderr)
+    ips = scan(cidr, port, timeout)
+
+    if not ips:
+        print("[termux] 没有找到开放该端口的主机", file=sys.stderr)
+        return 1
+
+    print(f"[termux] 发现 {len(ips)} 台候选: {', '.join(ips)}", file=sys.stderr)
+
+    cmds = [build_ssh_command(user, ip, port, command) for ip in ips]
+
+    for cmd in cmds:
+        print(cmd)
+
+    if no_copy:
+        return 0
+
+    tool = copy_to_clipboard(cmds[0])
+    if tool:
+        print(f"[termux] 已复制第一条命令到剪贴板 ({tool})", file=sys.stderr)
+    else:
+        print("[termux] 未找到剪贴板工具 (wl-copy/xclip/xsel/pbcopy)，仅打印", file=sys.stderr)
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

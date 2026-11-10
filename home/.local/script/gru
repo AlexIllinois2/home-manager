@@ -1,0 +1,226 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+gru.py - 批量拉取多个本地 Git 仓库，并可在拉取后执行自定义钩子命令
+用法: python gru.py
+配置: 修改下面的 REPOS 列表，填入本地路径、远程链接和可选钩子命令
+      （路径支持 ~ 和 $HOME 等环境变量）
+"""
+
+import os
+import sys
+import subprocess
+from pathlib import Path
+
+# ---------- 在这里配置你要管理的 Git 仓库 ----------
+# 字段说明:
+#   path  : 本地仓库路径（支持 ~ 和 $VAR）
+#   url   : 远程仓库地址（仅在本地路径不存在需要 clone 时使用）
+#   hooks : 可选。拉取/克隆成功后执行的命令，字符串或字符串列表，
+#           在仓库目录下用 shell 执行（支持 && 、重定向、管道等）
+REPOS = [
+    # bash
+    {
+        "path": "$HOME/.local/share/bash/ble.sh.git",
+        "url": "git@github.com/akinomyoga/ble.sh.git",
+        "hooks": [
+            "echo 'ble.sh updated, make it ...'",
+            "make -C $HOME/.local/share/bash/ble.sh.git install PREFIX=~/.local",
+        ],
+    },
+    {
+        "path": "$HOME/.local/share/bash/fzf-tab-completion.git",
+        "url": "git@github.com/lincheney/fzf-tab-completion.git",
+    },
+    {
+        "path": "$HOME/.local/share/bash/bash-preexec.git",
+        "url": "git@github.com:rcaloras/bash-preexec.git",
+    },
+    
+    {
+        "path": "~/.local/share/fcitx5/rime",
+        "url": "git@github.com:iDvel/rime-ice.git",
+        "hooks": "fcitx5 -r -d",  # 示例：重载 fcitx5
+    },
+    
+    # zsh
+    {
+        "path": "$HOME/.local/share/zsh/plugins/zsh-completions.git",
+        "url": "git@github.com:zsh-users/zsh-completions.git",
+    },
+    {
+        "path": "$HOME/.local/share/zsh/plugins/fzf-tab.git",
+        "url": "git@github.com:Aloxaf/fzf-tab.git",
+        "hooks": [
+            "echo 'fzf-tab updated'",
+            # "make install",
+        ],
+    },
+    {
+        "path": "$HOME/.local/share/zsh/themes/powerlevel10k.git",
+        "url": "git@github.com:romkatv/powerlevel10k.git",
+    },
+
+    # 添加更多仓库...
+]
+# -----------------------------------------------------
+
+
+def expand_path(path_str: str) -> Path:
+    """展开路径中的 ~ 和 $VAR 环境变量，并返回 Path 对象"""
+    expanded = os.path.expanduser(os.path.expandvars(path_str))
+    return Path(expanded).resolve()
+
+
+def is_git_repo(path: Path) -> bool:
+    """检查路径是否是一个有效的 Git 仓库"""
+    return (path / ".git").exists()
+
+
+def git_clone(repo_path: Path, remote_url: str) -> bool:
+    """克隆缺失的仓库，仅获取最新提交。"""
+    try:
+        repo_path.parent.mkdir(parents=True, exist_ok=True)
+        print(f"\n>>> 正在克隆: {remote_url} -> {repo_path}")
+        result = subprocess.run(
+            ["git", "clone", "--depth", "1", remote_url, str(repo_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            print("✅ 克隆成功")
+            return True
+        print("❌ 克隆失败:")
+        if result.stderr:
+            print(result.stderr.strip(), file=sys.stderr)
+        return False
+    except Exception as e:
+        print(f"❌ 执行 git clone 时发生异常: {e}")
+        return False
+
+
+def git_pull(repo_path: Path) -> bool:
+    """
+    在指定仓库路径执行 git pull
+    返回 True 表示成功，False 表示失败
+    """
+    try:
+        print(f"\n>>> 正在拉取: {repo_path}")
+        result = subprocess.run(
+            ["git", "pull"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            if result.stdout:
+                print(result.stdout.strip())
+            if result.stderr:
+                print(result.stderr.strip(), file=sys.stderr)
+            print("✅ 成功")
+            return True
+        else:
+            print("❌ 拉取失败:")
+            if result.stderr:
+                print(result.stderr.strip(), file=sys.stderr)
+            if result.stdout:
+                print(result.stdout.strip())
+            return False
+    except Exception as e:
+        print(f"❌ 执行 git pull 时发生异常: {e}")
+        return False
+
+
+def run_hooks(repo_path: Path, hooks) -> bool:
+    """
+    在仓库目录下依次执行钩子命令。
+    hooks 可以是字符串（单条命令）或字符串列表。
+    返回 True 表示全部成功。
+    """
+    if not hooks:
+        return True
+    if isinstance(hooks, str):
+        hooks = [hooks]
+
+    all_ok = True
+    for cmd in hooks:
+        print(f">>> 执行钩子: {cmd}")
+        # 传入环境变量，方便钩子脚本里引用当前仓库路径
+        env = os.environ.copy()
+        env["REPO_PATH"] = str(repo_path)
+        try:
+            # 直接继承当前终端输出，方便看到实时日志
+            result = subprocess.run(
+                cmd,
+                cwd=repo_path,
+                shell=True,
+                env=env,
+                check=False,
+            )
+        except Exception as e:
+            print(f"❌ 钩子执行异常: {e}")
+            all_ok = False
+            continue
+
+        if result.returncode == 0:
+            print("✅ 钩子执行成功")
+        else:
+            print(f"❌ 钩子执行失败 (exit {result.returncode})")
+            all_ok = False
+
+    return all_ok
+
+
+def main():
+    if not REPOS:
+        print("没有配置仓库，请检查 REPOS 配置。")
+        sys.exit(1)
+
+    success_count = 0
+    failure_count = 0
+    hook_failure_count = 0
+
+    for entry in REPOS:
+        local_path = entry["path"]
+        remote_url = entry["url"]
+        hooks = entry.get("hooks")
+
+        repo = expand_path(local_path)
+        action_ok = False
+
+        if not repo.exists():
+            action_ok = git_clone(repo, remote_url)
+        elif not repo.is_dir():
+            print(f"⚠️  不是目录，已跳过: {repo}")
+        elif not is_git_repo(repo):
+            print(f"⚠️  不是 Git 仓库（缺少 .git），已跳过: {repo}")
+        else:
+            action_ok = git_pull(repo)
+
+        if not action_ok:
+            failure_count += 1
+            continue
+
+        success_count += 1
+
+        # 拉取/克隆成功后执行钩子
+        if hooks and not run_hooks(repo, hooks):
+            hook_failure_count += 1
+
+    print(f"共 {len(REPOS)} 个仓库处理完成")
+    print("\n" + "=" * 50)
+    print(
+        f"完成: 成功 {success_count} 个，失败 {failure_count} 个，"
+        f"钩子失败 {hook_failure_count} 个"
+    )
+
+    if failure_count > 0 or hook_failure_count > 0:
+        sys.exit(1)
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

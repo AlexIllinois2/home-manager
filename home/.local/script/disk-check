@@ -1,0 +1,5 @@
+#!/usr/bin/bash
+
+sudo smartctl -a /dev/sdb | grep -E 'SMART overall-health|Current_Pending_Sector|Reallocated_Sector_Ct|Raw_Read_Error_Rate'
+
+

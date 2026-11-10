@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+# MV文件夹
+MV_DIR="$HOME/Music"
+
+# 音乐模式(随机)
+mp3() {
+  mpv --no-video --shuffle "$MV_DIR"
+}
+
+# MV模式(随机小窗)
+mp4() {
+  # Gnome环境可以在命令开头加 gnome-session-inhibit 命令防止播放时息屏 
+  mpv --shuffle --sub-auto=no --border=no --geometry=100%:0 --autofit=20% --ontop-level=system --ontop "$MV_DIR"
+}
+
+case $(basename "$0") in
+    mp4) mp4 ;;
+    *) mp3 ;;
+esac

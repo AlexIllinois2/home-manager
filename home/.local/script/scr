@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# scr - 创建/授权脚本并编辑
+# 用法: scr <name>
+
+set -euo pipefail
+
+if [ $# -ne 1 ]; then
+    echo "用法: scr <文件名>" >&2
+    exit 1
+fi
+
+file="$1"
+
+if [ -e "$file" ]; then
+    # 文件已存在：没有可执行权限就补上
+    if [ ! -x "$file" ]; then
+        chmod +x "$file"
+        echo "[scr] 已添加执行权限: $file"
+    fi
+else
+    # 文件不存在：创建并加执行权限
+    touch "$file"
+    chmod +x "$file"
+    echo "[scr] 已创建并添加执行权限: $file"
+fi
+
+# 用 vim 打开
+vim "$file"

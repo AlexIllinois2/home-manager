@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# 模糊匹配进程并全部杀死
+
+_k_() {
+    ps -ef | grep "$1" | awk '{print $2}' | sed '$d' | xargs kill -9
+}
+
+# 杀掉所有带.exe和wine的进程
+_kwine() {
+    _k_ "\.exe"
+    _k_ "wine"
+}
+
+case $1 in
+    win) _kwine ;;
+    wine) _kwine ;;
+    *) _k_ "$1" ;;
+esac
