@@ -53,6 +53,8 @@ bindkey '^L' clear-screen-and-scrollback
 autoload -U add-zsh-hook
 
 
-find $HOME/.local/shell/env -mindepth 1 2>/dev/null | while read -r line; do source "$line"; done
-find $HOME/.local/shell/rc -mindepth 1 2>/dev/null | while read -r line; do source "$line"; done
+# 跳过 home-manager 激活时留下的 *.backup：否则同一份配置会被 source 两次，
+# 第二次 alias git=git_init_process 已生效，函数体里的 git 会展开成自身而无限递归。
+find $HOME/.local/shell/env -mindepth 1 ! -name '*.backup' 2>/dev/null | while read -r line; do source "$line"; done
+find $HOME/.local/shell/rc -mindepth 1 ! -name '*.backup' 2>/dev/null | while read -r line; do source "$line"; done
 unset line

@@ -1,32 +1,32 @@
 git_aliased=0
 git_alias() {
-    alias clone="git clone"
-    alias remote="git remote"
-    alias checkout="git checkout"
-    alias status="git status"
-    alias pull="git pull"
-    alias diff="git diff"
-    alias add="git add"
-    alias commit="git commit"
-    alias branch="git branch"
-    alias push="git push"
-    alias merge="git merge"
-    alias rebase="git rebase"
-    alias stash="git stash"
-    alias reset="git reset"
+    alias clone="command git clone"
+    alias remote="command git remote"
+    alias checkout="command git checkout"
+    alias status="command git status"
+    alias pull="command git pull"
+    alias diff="command git diff"
+    alias add="command git add"
+    alias commit="command git commit"
+    alias branch="command git branch"
+    alias push="command git push"
+    alias merge="command git merge"
+    alias rebase="command git rebase"
+    alias stash="command git stash"
+    alias reset="command git reset"
 
-    alias ce="git clone"
-    alias ct="git checkout"
-    alias s="git status"
-    alias p="git push"
-    alias l="git pull"
-    alias d="git diff"
-    alias a="git add"
-    alias c="git commit"
-    alias b="git branch"
-    alias m="git merge"
-    alias r="git reset"
-    alias qp="git add . && git commit -am 'update' && git push -u github main"
+    alias ce="command git clone"
+    alias ct="command git checkout"
+    alias s="command git status"
+    alias p="command git push"
+    alias l="command git pull"
+    alias d="command git diff"
+    alias a="command git add"
+    alias c="command git commit"
+    alias b="command git branch"
+    alias m="command git merge"
+    alias r="command git reset"
+    alias qp="command git add . && command git commit -am 'update' && command git push -u github main"
 
     git_aliased=1
 }
@@ -64,7 +64,7 @@ git_unalias() {
     git_aliased=0
 }
 git_is_repo() {
-    git rev-parse --is-inside-work-tree >/dev/null 2>&1 && echo 1 || echo 0
+    command git rev-parse --is-inside-work-tree >/dev/null 2>&1 && echo 1 || echo 0
 }
 git_hook_chpwd() {
     # 路径 hook, 变更目录后如果是 git 目录, 定义别名, 否则移除别名
@@ -97,11 +97,14 @@ elif [ -n "$BASH_VERSION" ]; then
 fi
 
 # 使用git init的目录别名不生效时除了新开terminal也可以`.`一下(cd ./)
+# 注意：函数内部必须用 `command git` 绕过 alias git=git_init_process，
+# 否则本文件被重复 source（alias 已生效）时函数体里的 git 会被展开成自身，
+# 造成无限递归并报 "maximum nested function level reached; increase FUNCNEST?"。
 git_init_process() {
     if [ "$1" = 'init' ]; then
-        git "$@" && cd ./
+        command git "$@" && cd ./
     else
-        git "$@"
+        command git "$@"
     fi
 }
 alias git="git_init_process"

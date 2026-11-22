@@ -2,16 +2,15 @@
 """
 termux - 扫描局域网内的 Termux SSH 主机，打印并复制 ssh 命令到剪贴板
 
+termux sshd 忽略登录用户名（一律落到自己的 uid），因此命令不带用户名。
+
 用法:
-  termux                  # 生成默认用户名的 ssh 命令
-  termux 456              # 生成 u0_a456@<IP> 的 ssh 命令
-  termux u10_a456         # 直接指定完整用户名
-  termux 456 ls -la       # 生成带远程命令的 ssh 命令
+  termux                  # 生成 ssh 命令
+  termux ls -la           # 生成带远程命令的 ssh 命令
 
 选项:
   -c, --cidr    扫描网段           (默认 192.168.1.0/24)
   -p, --port    SSH 端口           (默认 8022)
-  -u, --user    默认用户名         (默认 u0_a123)
   -t, --timeout TCP 探测超时(秒)   (默认 1.0)
   -n, --no-copy 只打印，不复制到剪贴板
 """
@@ -28,7 +27,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 DEFAULT_CIDR = "192.168.1.0/24"
 DEFAULT_PORT = 8022
-DEFAULT_USER = "u0_a123"
 DEFAULT_TIMEOUT = 1.0
 WORKERS = 128
 
@@ -55,19 +53,11 @@ def scan(cidr, port, timeout):
     return found
 
 
-def resolve_user(arg, default_user):
-    if arg is None:
-        return default_user
-    if arg.isdigit():
-        return f"u0_a{arg}"
-    return arg
-
-
-def build_ssh_command(user, ip, port, remote_cmd):
+def build_ssh_command(ip, port, remote_cmd):
     parts = [
         "ssh", "-p", str(port),
         "-o", "StrictHostKeyChecking=accept-new",
-        f"{user}@{ip}",
+        ip,
     ]
     parts += [shlex.quote(c) for c in remote_cmd]
     return " ".join(parts)
@@ -99,9 +89,7 @@ def print_help():
 def parse_args(argv):
     cidr = DEFAULT_CIDR
     port = DEFAULT_PORT
-    user = DEFAULT_USER
     timeout = DEFAULT_TIMEOUT
-    target = None
     command = []
     no_copy = False
 
@@ -117,20 +105,16 @@ def parse_args(argv):
             cidr = argv[i + 1]; i += 2
         elif a in ("-p", "--port"):
             port = int(argv[i + 1]); i += 2
-        elif a in ("-u", "--user"):
-            user = argv[i + 1]; i += 2
         elif a in ("-t", "--timeout"):
             timeout = float(argv[i + 1]); i += 2
         else:
-            target = a
-            command = argv[i + 1:]
+            command = argv[i:]
             break
-    return cidr, port, user, timeout, target, command, no_copy
+    return cidr, port, timeout, command, no_copy
 
 
 def main():
-    cidr, port, default_user, timeout, target, command, no_copy = parse_args(sys.argv[1:])
-    user = resolve_user(target, default_user)
+    cidr, port, timeout, command, no_copy = parse_args(sys.argv[1:])
 
     print(f"[termux] 扫描 {cidr} 端口 {port} ...", file=sys.stderr)
     ips = scan(cidr, port, timeout)
@@ -141,7 +125,7 @@ def main():
 
     print(f"[termux] 发现 {len(ips)} 台候选: {', '.join(ips)}", file=sys.stderr)
 
-    cmds = [build_ssh_command(user, ip, port, command) for ip in ips]
+    cmds = [build_ssh_command(ip, port, command) for ip in ips]
 
     for cmd in cmds:
         print(cmd)
