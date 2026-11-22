@@ -1,4 +1,4 @@
-[[ -o interactive ]] || return
+#[[ -o interactive ]] || return
 
 # 允许输入行注释
 setopt interactive_comments
